@@ -1,0 +1,96 @@
+---
+title: "Lab00"
+author: "wwan6344"
+format: 
+  html: 
+    ### IMPORTANT ###
+    embed-resources: true # Creates a single HTML file as output
+    code-fold: show # Code folding; allows you to show/hide code chunks
+    ### USEFUL ###
+    code-tools: true # Includes a menu to download the code file
+    ### OPTIONAL ###
+    code-line-numbers: true # Line numbers in code chunks
+    df-print: paged # Sets how dataframes are automatically printed
+    theme: lux # Controls the font, colours, etc.
+table-of-contents: true # (Useful) Creates a table of contents!
+number-sections: true # (Optional) Puts numbers next to heading/subheadings
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r , warning = FALSE, message = FALSE ,tidy = TRUE }
+library(tidyverse)
+library(dplyr)
+library(palmerpenguins)
+library(visdat)
+visdat::vis_miss(penguins_raw)
+library(janitor)
+# show missing value for each column
+penguins_clean = penguins_raw |>
+ janitor::clean_names() |>
+ tidyr::drop_na(sex) |>
+  
+# clean column name and drop null values
+ dplyr::mutate(
+ species_short = stringr::word(species, start = 1, end = 1)
+ )
+# use the first world in species to create a column shor species
+
+
+
+penguins_clean |>
+ janitor::tabyl(species, sex) |>
+# show the df in a table
+ janitor::adorn_totals(where = c("row", "col")) 
+# sum column and row
+
+
+
+
+
+```
+
+You can add options to executable code like this
+
+```{r}
+ggplot(data = penguins_clean) + 
+# insert df into ggplot
+  aes(x = species_short, fill = sex) +
+# specify axes and add color for variables
+ geom_bar() +
+ labs(x = "", y = "Proportion of penguins", fill = "Sex") +
+  # add name for axis
+ theme_linedraw(base_size = 10)
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+ ggplot(data = penguins_clean) + aes(x = species_short, fill = sex) +
+ geom_bar(position = "fill") +
+ theme_linedraw(base_size = 10) +
+ labs(x = "", y = "Proportion of penguins", fill = "Sex")
+
+```
+
+
+```{r}
+ ggplot(data = penguins_clean) + aes(x = species_short, fill = sex) +
+  # specific variables and give colour to them
+ geom_bar(position = "fill") +
+  # show proportion instead of actual number
+ theme_linedraw(base_size = 10) +
+labs(x = "", y = "", fill = "Sex") +
+  # change label name
+ scale_y_continuous(labels = scales::percent_format()) +
+# add percentage sign to the y column make it continuous
+ facet_grid(cols = vars(island), scales = "free_x", space = "free_x")
+# add qualitative variable and remove null row space and name
+```
+
