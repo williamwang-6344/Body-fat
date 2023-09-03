@@ -1,0 +1,230 @@
+---
+title: "Your title here"
+date: "`r Sys.Date()`"
+author: "Your SID (don't put your name, so that we can respect the anonymous marking policy)"
+format: 
+  html: 
+    embed-resources: true # Creates a single HTML file as output
+    code-fold: true # Code folding; allows you to show/hide code chunks
+    code-tools: true # Includes a menu to download the code file 
+    # code-tools are particularly important if you use inline R to 
+    # improve the reproducibility of your report
+table-of-contents: true # (Optional) Creates a table of contents
+number-sections: true # (Optional) Puts numbers next to heading/subheadings
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r,warnings= FALSE,message = FALSE}
+library(gt)
+library(tidyverse)
+x = readr::read_csv("data/DATA2x02 survey (2023) (Responses) - Form responses 1.csv")
+old_names = colnames(x)
+new_names = c("timestamp","n_units","task_approach","age",
+              "life","fass_unit","fass_major","novel",
+              "library","private_health","sugar_days","rent",
+              "post_code","haircut_days","laptop_brand",
+              "urinal_position","stall_position","n_weetbix","food_budget",
+              "pineapple","living_arrangements","height","uni_travel_method",
+              "feel_anxious","study_hrs","work","social_media",
+              "gender","sleep_time","diet","random_number",
+              "steak_preference","dominant_hand","normal_advanced","exercise_hrs",
+              "employment_hrs","on_time","used_r_before","team_role",
+              "social_media_hrs","uni_year","sport","wam","shoe_size")
+# overwrite the old names with the new names:
+colnames(x) = new_names
+# combine old and new into a data frame:
+name_combo = bind_cols(New = new_names, Old = old_names)
+visdat::vis_miss(x)
+```
+
+You can add options to executable code like this
+
+```{r,warnings= FALSE,message = FALSE}
+x = x |> 
+  dplyr::mutate(
+    height_clean = readr::parse_number(height),
+    height_clean = case_when(
+      # convert meters to cm
+      height_clean <= 2.5 ~ height_clean * 100,
+      # convert the feet and inches to missing
+      height_clean <= 9 ~ NA_real_,
+      # convert inches to cm
+      height_clean < 90 ~ height_clean * 2.54,
+      TRUE ~ height_clean
+    )
+  )
+x |> 
+  ggplot() + 
+  aes(x = height_clean) + 
+  geom_histogram(binwidth = 5)+ 
+  labs(x = "Count", y = "Height (cm)") + 
+  theme_bw()
+
+```
+```{r,warnings= FALSE,message = FALSE}
+x |> 
+  filter(height_clean < 110) |>
+  View()
+```
+
+```{r,warnings= FALSE,message = FALSE}
+x = x |> 
+  mutate(height_clean = if_else(height_clean>100, height_clean, NA ))
+# check it's worked:
+# x |> select(height, height_clean) |> View()
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+```{r,warnings= FALSE,message = FALSE}
+
+```
+```{r,warnings= FALSE,message = FALSE}
+x = x |> mutate(
+  gender_clean = gendercoder::recode_gender(gender)
+)
+
+
+```
+
+```{r,warnings= FALSE,message = FALSE}
+# ADD a new collumn wam_d_above fill with true when wam above or equal to 75 and fill false when the wam is below (homogeneity test)
+x=x |>  mutate(
+    wam = ifelse(wam <= 0, NA, wam),
+    wam_d_above = wam >= 75,
+    wam_d_above = factor(wam_d_above, levels = c(TRUE, FALSE)),
+    gender_clean = factor(gender_clean, levels = c("man", "woman"))
+  )
+
+
+gender_wam = table(x$gender_clean, x$wam_d_above ,useNA = "ifany")
+colnames(gender_wam)= c("WAM above or equal to 75","WAM below 75","Not specified")
+rownames(gender_wam)= c("Male","Female","Potential genders")
+
+gender_wam
+test_result = chisq.test(gender_wam)
+test_result$expected
+chisq = test_result$statistic
+row_totals = rowSums(gender_wam)
+col_totals = colSums(gender_wam)
+B = 10000
+set.seed(123)
+x_list = r2dtable(n = B,
+                  r = row_totals,
+                  c = col_totals)
+rnd.chisq = numeric(B)
+for (i in 1:B){
+  rnd.chisq[i] = suppressWarnings(chisq.test(x_list[[i]])$statistic)
+}
+sum(rnd.chisq >= chisq)/B
+```
+
+```{r}
+library(dplyr)
+
+# Calculate Q1, Q3, and IQR for the 'value' column
+Q1 = x|> filter(!is.na(x$wam))|> select(wam) |>  pull()|> quantile( 0.25)
+Q3 = x|> filter(!is.na(x$wam))|> select(wam) |> pull()|>quantile( 0.75)
+IQR = Q3 - Q1
+
+
+f_wam = x|>filter(gender_clean =='woman' & !is.na(wam)& wam >= (Q1 - 1.5 * IQR) & wam <= (Q3 + 1.5 * IQR)) |> select(wam)
+m_wam =  x|>filter(gender_clean =='man' & !is.na(wam)& wam >= (Q1 - 1.5 * IQR) & wam <= (Q3 + 1.5 * IQR)) |> select(wam)
+
+f_wam |> ggplot(aes(sample=wam)) +
+  geom_qq() + 
+  geom_qq_line(color = grey(0.5)) + 
+  labs(x = "Theoretical normal quantiles",
+       y = "Observed values") 
+m_wam |> ggplot(aes(sample=wam)) +
+  geom_qq() + 
+  geom_qq_line(color = grey(0.5)) + 
+  labs(x = "Theoretical normal quantiles",
+       y = "Observed values")
+```
+```{r}
+f_height = x|>filter(gender_clean =='woman' & !is.na(height_clean)) |> select(height_clean)
+f_height|>
+  ggplot(aes(sample = height_clean)) +
+  geom_qq() + 
+  geom_qq_line(color = grey(0.5)) + 
+  labs(x = "Theoretical normal quantiles",
+       y = "Observed values")
+
+m_height = x|>filter(gender_clean =='man' & !is.na(height_clean)) |> select(height_clean)
+m_height|>
+  ggplot(aes(sample = height_clean)) +
+  geom_qq() + 
+  geom_qq_line(color = grey(0.5)) + 
+  labs(x = "Theoretical normal quantiles",
+       y = "Observed values")
+```
+
+
+
+```{r,warnings= FALSE,message = FALSE}
+x= x |> mutate(
+  social_media_clean = tolower(social_media),
+  social_media_clean = str_replace_all(social_media_clean, '[[:punct:]]',' '),
+  social_media_clean = stringr::word(social_media_clean),
+  social_media_clean = case_when(
+    stringr::str_starts(social_media_clean,"in") ~ "instagram",
+    stringr::str_starts(social_media_clean,"ig") ~ "instagram",
+    stringr::str_starts(social_media_clean,"tik") ~ "tiktok",
+    stringr::str_starts(social_media_clean,"we") ~ "wechat",
+    stringr::str_starts(social_media_clean,"x") ~ "twitter",
+    stringr::str_starts(social_media_clean,"mess") ~ "facebook",
+    stringr::str_starts(social_media_clean,"bil") ~ "bilibili",
+    is.na(social_media_clean) ~ "none",
+    TRUE ~ social_media_clean
+  ),
+  social_media_clean = tools::toTitleCase(social_media_clean),
+  social_media_clean = forcats::fct_lump_min(social_media_clean, min = 10)
+)
+```
+
+```{r,warnings= FALSE,message = FALSE}
+x = x |> 
+  mutate(identifier = row_number()) |> 
+  mutate(sport = replace_na(sport, "I don't play any sport"))
+sport <- x |>
+  dplyr::select(identifier, sport) |> 
+  tidyr::separate_rows(sport,
+                       sep = ", ") |> 
+  dplyr::mutate(sport = tools::toTitleCase(sport),
+                sport = factor(sport),
+                sport = forcats::fct_lump_min(sport, 2))
+```
+
+```{r,warnings= FALSE,message = FALSE}
+sport_wide = sport |> 
+  mutate(value = 1) |> 
+  distinct() |> 
+  pivot_wider(id_cols = identifier,
+              names_from = sport, 
+              values_from = value,
+              values_fill = 0)
+x = x |>
+  left_join(sport_wide, by = "identifier") |> 
+  janitor::clean_names()
+colnames(x)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
