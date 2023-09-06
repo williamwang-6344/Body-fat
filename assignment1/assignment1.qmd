@@ -1,7 +1,7 @@
 ---
-title: "Your title here"
+title: "DATA2x02_survey_2023"
 date: "`r Sys.Date()`"
-author: "Your SID (don't put your name, so that we can respect the anonymous marking policy)"
+author: "510508678"
 format: 
   html: 
     embed-resources: true # Creates a single HTML file as output
@@ -13,16 +13,57 @@ table-of-contents: true # (Optional) Creates a table of contents
 number-sections: true # (Optional) Puts numbers next to heading/subheadings
 ---
 
-## Quarto
+## Data Wrangling
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+All calculations in the report were performed in R within the Quarto environment. Data Wrangling was performed using R and tidyverse library. All graphs were produced by ggplot2, tables were produced with gt. Additional data manipulations were produced with dplyr.
 
-## Running Code
+## Data Cleaning
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+All variable names were shortened and some varaibles in the raw data were cleaned with DATA2002 assignment: data importing and cleaning guide. gender, wam and height were cleaned to contain either valid data or NA. And outliers are converted to NA to prevent distortion of the true distribution of data and ensure test accuracy
+
+### Gender
+
+Use package on github called gendercoder to categorize raw data in to three categories, NA, man and woman. However, one response- "Women" was accidentally categorized into NA category with recode_gender. So, it needed an additional step to convert it back into woman category.
+
+### WAM
+
+All cells in wam are numeric, but wam can not be smaller or equal to 0 and can not be larger than 100. So, for answers that did not fall into the region $0 < \text{wam} < 100$ were converted into NA. Furthermore, outliners were remove using formula:
+
+\$\$\\text{Outliers} = \\text{Values} \< Q1 - 1.5 \\times IQR \\text{ or } \\text{Values} \> Q3 + 1.5 \\times IQR\$\$
+
+### Height
+
+Not all cells in the height column are numerical and the units for height are inconsistent. Some of the answers are in cm , some of them in feet and some of them in m. After cleaning, all height were in cm. By observing geom histogram of the data,there were two outliers in height. They were coverted to NA manually using filter function.
+
+## General discussion of the data as a whole
+
+### Is this a random sample of DATA2X02 students?
+
+The raw data is collected from the anonymous survey on Ed which is available to all DATA2x02 students. All questions are optional and there is no requirement to fill out the survey.(DATA2x02_survey_2023) This dataset does not represent a random sample of DATA2X02 students. In a random sample, each individual from a population has an identical probability of being chosen. However, in this case, only students who responded to the survey have a chance of being chosen, while students who did not have no chance. Therefore, not all students in the DATA2X02 have an equal probability of being chosen, indicating that the data was not obtained through random sampling.
+
+### What are the potential biases? Which variables are most likely to be subjected to this bias?
+
+1.  **Self-selection Bias:**
+
+    Since the survey was posted on Ed and opened to all DATA2X02 students, but questions were optional. There's a probability that only students who are interested in the survey questions choose to participate. This might result in an unrepresentative sample, as students who are interested in the survey questions might share certain perspectives or characteristics that might underrepresent other characteristics. In this case, all variables in the survey are experiencing self-selection bias as students can choose whether they do the survey or not.
+
+2.  **Non-response Bias:**
+
+    Given the survey is optional and not all students responded to every question in the survey. If students who did not respond to the survey have different opinions, then non-respond bias is introduced. For questions like What's your WAM, team role there's the probability that students with a higher WAM a more likely to respond to this WAM question. And free riders may not answer the team role question. This can lead to a higher WAM average in the sample, which can not represent the actual population.
+
+### Which questions needed improvement to generate useful data (e.g. in terms of the way the question was phrased or response validation)?
+
+**What is your WAM?** 
+
+The questions asked students to provide the Weighted average mark they have got. However, not everyone knows what "WAM" stands for. Consider spelling out the acronym helps students to understand the question and generate more accurate results. 
+
+**What brand is your laptop?** 
+
+The question can be improved by offering predefined answers. As students might refer to the same brand in different ways. For example, Apple laptops might be written as "Mac"," Mac book", or "Apple". This can lead to fragmented data where the same brands appear as multiple categories. Thus, offering predefined ensures the consistency of responses and reduces the chances of varied responses for the same brand.
 
 ```{r,warnings= FALSE,message = FALSE}
 library(gt)
+library(dplyr)
 library(tidyverse)
 x = readr::read_csv("data/DATA2x02 survey (2023) (Responses) - Form responses 1.csv")
 old_names = colnames(x)
@@ -41,15 +82,9 @@ new_names = c("timestamp","n_units","task_approach","age",
 colnames(x) = new_names
 # combine old and new into a data frame:
 name_combo = bind_cols(New = new_names, Old = old_names)
-visdat::vis_miss(x)
-```
-
-You can add options to executable code like this
-
-```{r,warnings= FALSE,message = FALSE}
 x = x |> 
   dplyr::mutate(
-    height_clean = readr::parse_number(height),
+    height_clean = suppressWarnings(readr::parse_number(height)),
     height_clean = case_when(
       # convert meters to cm
       height_clean <= 2.5 ~ height_clean * 100,
@@ -60,56 +95,89 @@ x = x |>
       TRUE ~ height_clean
     )
   )
-x |> 
-  ggplot() + 
-  aes(x = height_clean) + 
-  geom_histogram(binwidth = 5)+ 
-  labs(x = "Count", y = "Height (cm)") + 
-  theme_bw()
 
-```
-```{r,warnings= FALSE,message = FALSE}
-x |> 
-  filter(height_clean < 110) |>
-  View()
-```
-
-```{r,warnings= FALSE,message = FALSE}
 x = x |> 
   mutate(height_clean = if_else(height_clean>100, height_clean, NA ))
-# check it's worked:
-# x |> select(height, height_clean) |> View()
-```
-
-The `echo: false` option disables the printing of code (only output is displayed).
-```{r,warnings= FALSE,message = FALSE}
-
-```
-```{r,warnings= FALSE,message = FALSE}
-x = x |> mutate(
-  gender_clean = gendercoder::recode_gender(gender)
-)
-
 
 ```
 
+## Hypothesis tests
+
+### Is academic performance independent to gender?
+
+To test the academic performance of different gender groups --- Male, Female and Potential genders. WAM is classified into two categories --- above of equals to 75 or below 75. Students with a NA value of WAM is excluded as NA can not fall into either category. However, NA value in gender have been recorded as Potential genders. This categorization offers insights into gender dynamics, as an undefined gender could represent non-binary individuals or those who identify as male or female but chose not to specify. The bar chars in Figure2 show the number of students who achieved WAM 75 equal or above and those below 75 in all three gender groups.
+
 ```{r,warnings= FALSE,message = FALSE}
-# ADD a new collumn wam_d_above fill with true when wam above or equal to 75 and fill false when the wam is below (homogeneity test)
+# ADD a new collumn wam_d_above fill with true when wam above or equal to 75 and fill false when the wam is below (independence test)
 x=x |>  mutate(
-    wam = ifelse(wam <= 0, NA, wam),
+    gender_clean = gendercoder::recode_gender(gender),
+    gender_clean = ifelse(gender == "Women","woman",gender_clean),
+    wam = ifelse(wam <= 0 | wam > 100, NA, wam),
     wam_d_above = wam >= 75,
     wam_d_above = factor(wam_d_above, levels = c(TRUE, FALSE)),
     gender_clean = factor(gender_clean, levels = c("man", "woman"))
   )
 
 
-gender_wam = table(x$gender_clean, x$wam_d_above ,useNA = "ifany")
-colnames(gender_wam)= c("WAM above or equal to 75","WAM below 75","Not specified")
+gender_wam = table(x|>filter(!is.na(wam_d_above))|> select(gender_clean) |> pull(), x |> filter(!is.na(wam_d_above))|> select(wam_d_above) |> pull(),useNA = "ifany")
+colnames(gender_wam)= c("WAM above or equal to 75","WAM below 75")
 rownames(gender_wam)= c("Male","Female","Potential genders")
-
 gender_wam
-test_result = chisq.test(gender_wam)
+```
+
+Figure1: students are classified according to their gender and their WAM
+
+```{r,warnings= FALSE,message = FALSE}
+
+
+gender_wam_long = as.data.frame(as.table(gender_wam))
+colnames(gender_wam_long) = c("Gender", "WAM_Category", "Count")
+
+# Plot using ggplot2
+ggplot(gender_wam_long, aes(x = Gender, y = Count, fill = WAM_Category)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(
+       x = "Gender",
+       y = "Count") +
+  scale_fill_manual(values = c("blue", "red")) +
+  theme_minimal()
+
+```
+
+Figure2: Distribution of WAM in gender groups.
+
+```         
+```
+
+Check the assumption of independence t test : $e_{ij} = \frac{Y_i - e_i}{e_i} \geq 5$
+
+```{r,warnings= FALSE,message = FALSE}
+test_result=chisq.test(gender_wam)
 test_result$expected
+```
+
+The expected value for number of students achieved WAM below 75 in Potential genders is less than 5 which violates with the previous assumption. Therefore, Morte Carlo test was used instead.
+
+```         
+```
+
+1\. **Hypotheses:**
+
+-   $H_0$: Gender is independent of whether a student achieved a WAM above or equal to 75
+
+-   $H_1$: Gender and whether a student achieved a WAM above or equal to 75 are not independent
+
+2\. **Assumptions**: No assumptions are made about the underlying distribution of the population and the estimated value. The observations are independent.
+
+3\. **Test statistic**: $T = \sum_{i=1}^{k} \frac{(Y_i - e_i)^2}{e_i} \sim \chi^2_2$.
+
+4\. **Observed test statistic**: $t_0 = 0.366$
+
+5\. **p-value**: $P(\chi^2_2 \geq 0.366) = 0.8763$
+
+6\. **Decision**: Since the p-value is close to 1, there is not sufficient evidence to reject the null hypothesis. Gender is independent to whether a student could achieve WAM equal or above 75.
+
+```{r,warnings= FALSE,message = FALSE}
 chisq = test_result$statistic
 row_totals = rowSums(gender_wam)
 col_totals = colSums(gender_wam)
@@ -125,9 +193,9 @@ for (i in 1:B){
 sum(rnd.chisq >= chisq)/B
 ```
 
-```{r}
-library(dplyr)
+### Is the mean of WAM for female and male the same?
 
+```{r,warnings= FALSE,message = FALSE}
 # Calculate Q1, Q3, and IQR for the 'value' column
 Q1 = x|> filter(!is.na(x$wam))|> select(wam) |>  pull()|> quantile( 0.25)
 Q3 = x|> filter(!is.na(x$wam))|> select(wam) |> pull()|>quantile( 0.75)
@@ -141,14 +209,50 @@ f_wam |> ggplot(aes(sample=wam)) +
   geom_qq() + 
   geom_qq_line(color = grey(0.5)) + 
   labs(x = "Theoretical normal quantiles",
-       y = "Observed values") 
+       y = "Observed values",
+       title = "Female WAM") 
 m_wam |> ggplot(aes(sample=wam)) +
   geom_qq() + 
   geom_qq_line(color = grey(0.5)) + 
   labs(x = "Theoretical normal quantiles",
-       y = "Observed values")
+       y = "Observed values", 
+       title = "Male WAM")
 ```
-```{r}
+
+```{r,warnings= FALSE,message = FALSE}
+f_m_wam = data.frame(
+  Status = c("WAM for Female", "WAM for Male"),
+  Mean = c(mean(f_wam$wam), mean(m_wam$wam)),
+  StandardDeviation = c(sd(f_wam$wam), sd(m_wam$wam)),
+  N = c(nrow(f_wam),nrow(m_wam))
+)
+gt::gt(f_m_wam) |> 
+  gt::fmt_number(columns = c("Mean","StandardDeviation"), decimals = 1)
+
+```
+
+1\. **Hypotheses:**
+
+-   $H_0$: Gender is independent of whether a student achieved a WAM above or equal to 75
+
+-   $H_1$: Gender and whether a student achieved a WAM above or equal to 75 are not independent
+
+2\. **Assumptions**: The mean and varience for the two population followed a normal distribution. And the two sample are independent and contain identically distributed random variables.
+
+3\. **Test statistic**: $T$ = $\frac{\bar{X}_A - \bar{X}_C}{ \sqrt{\frac{S_F}{n_F} + \frac{S_M}{n_M}}}$ where $n_F$ = 151, $n_M$ = 68 , $S_F^2$ and $S_M^2 .$ are the sample variance of WAM for female and WAM for male. Under $H_0$ , $T$ ~ $t_v$ , $v$ is the degrees of freedom parameter estimated from the data.
+
+4\. **Observed test statistic**: $t_0 = 0.366$
+
+5\. **p-value**: $P(\chi^2_2 \geq 0.366) = 0.8763$
+
+6\. **Decision**: Since the p-value is close to 1, there is not sufficient evidence to reject the null hypothesis. Gender is independent to whether a student could achieve WAM equal or above 75.
+
+```{r,warnings= FALSE,message = FALSE}
+t.test(f_wam, m_wam,
+       alternative = "two.sided")
+```
+
+```{r,warnings= FALSE,message = FALSE}
 f_height = x|>filter(gender_clean =='woman' & !is.na(height_clean)) |> select(height_clean)
 f_height|>
   ggplot(aes(sample = height_clean)) +
@@ -159,61 +263,39 @@ f_height|>
 
 m_height = x|>filter(gender_clean =='man' & !is.na(height_clean)) |> select(height_clean)
 m_height|>
-  ggplot(aes(sample = height_clean)) +
+  ggplot(aes(sample = height_clean) ) +
   geom_qq() + 
   geom_qq_line(color = grey(0.5)) + 
   labs(x = "Theoretical normal quantiles",
-       y = "Observed values")
+       y = "Observed values")+
+  ggtitle("Male Height")
+
 ```
 
-
-
 ```{r,warnings= FALSE,message = FALSE}
-x= x |> mutate(
-  social_media_clean = tolower(social_media),
-  social_media_clean = str_replace_all(social_media_clean, '[[:punct:]]',' '),
-  social_media_clean = stringr::word(social_media_clean),
-  social_media_clean = case_when(
-    stringr::str_starts(social_media_clean,"in") ~ "instagram",
-    stringr::str_starts(social_media_clean,"ig") ~ "instagram",
-    stringr::str_starts(social_media_clean,"tik") ~ "tiktok",
-    stringr::str_starts(social_media_clean,"we") ~ "wechat",
-    stringr::str_starts(social_media_clean,"x") ~ "twitter",
-    stringr::str_starts(social_media_clean,"mess") ~ "facebook",
-    stringr::str_starts(social_media_clean,"bil") ~ "bilibili",
-    is.na(social_media_clean) ~ "none",
-    TRUE ~ social_media_clean
-  ),
-  social_media_clean = tools::toTitleCase(social_media_clean),
-  social_media_clean = forcats::fct_lump_min(social_media_clean, min = 10)
+f_m_height = data.frame(
+  Status =  "Height for Male",
+  Mean =  mean(m_height$height_clean),
+  StandardDeviation =  sd(m_height$height_clean),
+  N = nrow(m_height)
 )
+gt::gt(f_m_height) |> 
+  gt::fmt_number(columns = c("Mean","StandardDeviation"), decimals = 1)
+
 ```
 
 ```{r,warnings= FALSE,message = FALSE}
-x = x |> 
-  mutate(identifier = row_number()) |> 
-  mutate(sport = replace_na(sport, "I don't play any sport"))
-sport <- x |>
-  dplyr::select(identifier, sport) |> 
-  tidyr::separate_rows(sport,
-                       sep = ", ") |> 
-  dplyr::mutate(sport = tools::toTitleCase(sport),
-                sport = factor(sport),
-                sport = forcats::fct_lump_min(sport, 2))
+t.test( m_height, mu = 177.8,
+       alternative = "two.side")
+```
+
+```{r}
+
 ```
 
 ```{r,warnings= FALSE,message = FALSE}
-sport_wide = sport |> 
-  mutate(value = 1) |> 
-  distinct() |> 
-  pivot_wider(id_cols = identifier,
-              names_from = sport, 
-              values_from = value,
-              values_fill = 0)
-x = x |>
-  left_join(sport_wide, by = "identifier") |> 
-  janitor::clean_names()
-colnames(x)
+x|> filter(is.na(gender_clean ))|> select(gender_clean,gender)
+
 ```
 
 ```{r}
@@ -227,4 +309,3 @@ colnames(x)
 ```{r}
 
 ```
-
