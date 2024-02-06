@@ -1,0 +1,297 @@
+---
+title: "Body fat percentage"
+subtitle: "Group 012E01"
+author: "Tudor Liu, Samuel Tsui, Shirley Wang, William Wang"
+format: 
+  revealjs:
+    auto-slide: 20000
+    embed-resources: true
+    code-fold: false
+    code-tools: true
+    theme: dark
+editor: visual
+---
+
+## Introduction
+
+- source: The Data And Story Library (DASL)
+
+## Introduction {.scrollable}
+```{r,message=FALSE,echo=FALSE}
+#install.packages('tidyverse')
+#install.packages('ggpubr')
+#install.packages("sjPlot")
+#install.packages("qtlcharts")
+#install.packages("patchwork")
+library(tidyverse)
+library(patchwork)
+library(ggpubr)
+library(ggfortify)
+library(caret)
+
+df = read.table('bodyfat.txt',sep='\t', header=TRUE)
+df |> glimpse()
+```
+
+## Data description
+
+</br>
+
+**Siri's Equation:**
+
+</br>
+
+$PBF = \frac{495}D - 450$
+
+:::aside
+D = Body Density (gm/cm3)
+:::
+
+## Data cleaning {.scrollable}
+```{r}
+# Waist is actually Abdomen
+waist = matrix(c(head(df$Waist),head(df$Abdomen),head(df$Abdomen / 2.54)), byrow = TRUE, nrow = 3, dimnames = list(c("Waist","Abdomen","Abdomen/2.54")))
+waist
+
+# remove col
+df = select(df,-Density,-Waist)
+
+# change unit
+df$Weight = round(df$Weight * 0.45359237,3)
+df$Height = round(df$Height * 2.54,3)
+
+df |> head()
+```
+
+
+## Stepwise variable selection
+```{r}
+M0 = lm(Pct.BF ~ 1, data = df)
+M1 = lm(Pct.BF ~ ., data = df)
+step.fwd.aic = step(M0, scope = list(lower = M0, upper = M1),
+                     direction = "forward",
+                     trace = FALSE)
+round(summary(step.fwd.aic)$coef,3)
+
+step.back.aic = step(M1,
+                     direction = "backward",
+                     trace = FALSE)
+round(summary(step.back.aic)$coef,3)
+```
+
+## Comparing AIC {.scrollable}
+
+```{r}
+sjPlot::tab_model(step.fwd.aic, step.back.aic, show.ci = FALSE, show.aic = TRUE, dv.labels = c("Forward model", "Backward model"))
+```
+
+## Cross validation {.scrollable}
+
+```{r}
+set.seed(0)
+
+fold_id = c(rep(1:10, each = 25))
+df$fold_id = sample(fold_id, replace = FALSE)
+#head(df)
+k = 10
+forward_rmse = forward_mae = backward_rmse = backward_mae = vector(mode = "numeric", length = k)
+
+for(i in 1:k) {
+  test_set = df[df$fold_id == i,]
+  training_set = df[df$fold_id != i,]
+  
+  forw_lm = lm(Pct.BF ~ Abdomen + Weight + Wrist + Age + Bicep + Thigh
+                    , data = training_set)
+  back_lm = lm(Pct.BF ~ Abdomen + Wrist + Age + Height + Neck + Thigh + Hip + Forearm
+                    , data = training_set)
+  
+  forw_pred = predict(forw_lm, test_set)
+  back_pred = predict(back_lm, test_set)
+  
+  forward_rmse[i] = sqrt(mean((test_set$Pct.BF - forw_pred)^2))
+  forward_mae[i] = mean(abs(test_set$Pct.BF - forw_pred))
+
+  backward_rmse[i] = sqrt(mean((test_set$Pct.BF - back_pred)^2))
+  backward_mae[i] = mean(abs(test_set$Pct.BF - back_pred))
+}
+
+cv_res = tibble(forward_rmse,forward_mae,backward_rmse,backward_mae)
+```
+
+### Boxplot of rmse and mae
+```{r}
+cv_res |> gather(key = "metric", value = "error") |>
+  separate(col = metric, into = c("model","metric")) |>
+  ggplot(aes(x = model, y = error)) + facet_wrap(~metric, scales = "free_y") +
+  geom_boxplot()
+```
+
+### Means of rmse and mae
+
+```{r}
+cv_sum_res = cv_res |>
+  summarise(
+    across(.cols = everything(),
+           mean)
+  )
+forward = c(cv_sum_res$forward_rmse,cv_sum_res$forward_mae)
+backward = c(cv_sum_res$backward_rmse,cv_sum_res$backward_mae)
+
+means_of_errors = data.frame(forward,backward)
+row.names(means_of_errors) <- c("rmse","mae")
+means_of_errors
+```
+
+## Using Caret {.scrollable}
+```{r}
+cv_forward = train(
+  Pct.BF ~ Abdomen + Weight + Wrist + Age + Bicep + Thigh, df,
+  method = "lm",
+  trControl = trainControl(
+    method = "cv", number = 10,
+    verboseIter = FALSE
+  )
+)
+cv_backward = train(
+  Pct.BF ~ Abdomen + Wrist + Age + Height + Neck + Thigh + Hip + Forearm, df,
+  method = "lm",
+  trControl = trainControl(
+    method = "cv", number = 10,
+    verboseIter = FALSE
+  )
+)
+
+results <- resamples(list(Forward = cv_forward, Backward = cv_backward))
+
+ggplot(results, metric = "MAE") +
+  labs(y = "MAE")
+
+ggplot(results, metric = "RMSE") +
+  labs(y = "RMSE")
+
+ggplot(results, metric = "Rsquared") +
+  labs(y = "Rsquared")
+
+```
+
+
+## Choose forward model {.scrollable}
+```{r}
+sjPlot::tab_model(step.fwd.aic, step.back.aic, show.ci = FALSE, show.aic = TRUE, dv.labels = c("Forward model", "Backward model"))
+```
+
+
+## Assumption Checking {.scrollable}
+
+Before using the model to predict the average body fat percentage. It is pivotal to ensure the model follows Linear regression assumptions.
+
+**Independence**: the assumption is usually dealt within the experimental design phase - before data collection , so we are not assessing independence here.
+
+**Normality:** qqplot of residuals are normally distributed.
+
+```{r}
+lm1 = lm(Pct.BF ~ Abdomen + Weight + Wrist + Age + Bicep + Thigh, data = df)
+df = df|> mutate(residual= lm1$residuals, fitted_value= lm1$fitted.values)  
+df |> ggplot() +
+ aes(sample = residual) +
+ geom_qq(size = 2) + geom_qq_line()
+
+```
+
+## Assumption Checking {.scrollable}
+
+**Linearity**: the relationship between fitted values and percentage body fat, residuals are linear
+
+```{r}
+p1 = df |> ggplot() +
+ aes(x = fitted_value, y = Pct.BF) +
+ geom_point(size = 3, alpha = 0.8) +
+ labs(x = "Fixed value",
+ y = "BodyFat Percentage") +
+ geom_smooth(method="lm", se=FALSE)
+p2 = df |> ggplot() +
+ aes(x = fitted_value, y = residual) +
+ geom_point(size = 3, alpha = 0.8) +
+ labs(x = "Fixed value",
+ y = "Residual") +
+ geom_hline(yintercept = 0)
+p1+p2
+```
+
+## Assumption Checking {.scrollable}
+
+**Linearity**: the relationship between fitted values and percentage body fat, residuals are linear
+
+```{r}
+# same as p1,p2 but in different colours
+p3 = df |> ggplot() +
+ aes(x = fitted_value, y = Pct.BF) +
+ geom_point(size = 3) +
+ labs(x = "Fixed value",
+ y = "BodyFat Percentage") +
+ geom_smooth(method="lm", se=FALSE, color = "red")
+p4 = df |> ggplot() +
+ aes(x = fitted_value, y = residual) +
+ geom_point(size = 3) +
+ labs(x = "Fixed value",
+ y = "Residual") +
+ geom_hline(yintercept = 0, color = "green")
+p3+p4
+```
+
+## Assumption Checking {.scrollable}
+
+**Homoscedasticity**: It assumes the error variance is constant for all fixed values.
+
+```{r}
+p2
+```
+
+## Assumption Checking {.scrollable}
+
+**Homoscedasticity**: It assumes the error variance is constant for all fixed values.
+
+```{r}
+p4
+```
+
+
+## Evidence to back up
+
+### interactive correlation matrix
+
+![](interactive_correlation_matrix.png)
+
+```{r}
+#qtlcharts::iplotCorr(df)
+```
+
+## Why it matters
+As heath becomes a prevailing issue, the group members are interested in investigating the body fat percentage by predicting it indirectly through related variables.
+
+## What we discovered {.scrollable}
+
+Using AIC, the group has discovered that body fat percentage can be reflected by a linear model with independent variables:
+
+- Abdomen
+- Weight
+- Wrist
+- Bicep
+- Age
+- Thigh
+
+## Takeaway {.scrollable}
+
+- Knowing your own body fat percentage can be simple and easy as it is
+- Tools needed:
+- **A scale & another scale!**
+
+```{r}
+knitr::include_graphics("scale.jpeg")
+```
+
+## Limitations
+- sample size
+- Equations
+- AIC method
+

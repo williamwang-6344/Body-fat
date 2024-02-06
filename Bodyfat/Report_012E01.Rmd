@@ -1,0 +1,308 @@
+---
+title: Body Fat Percentage Estimation
+author:
+  - name: Tudor Liu, Samuel Tsui, Shirley Wang, William Wang
+# Optional: line of arbitrary text with additional information.
+#date_subtitle: Published in *Journal of Statistical Software*, 2018
+#lead_author_surname: Author and Author
+#doi_footer: "https://cran.r-project.org/package=YourPackage"
+abstract: |
+  In pursuit of an efficient method for estimating body fat percentage, this study endeavors to explore a model utilizing various body measurements. The research group seeks to establish a linear model that can calculate body fat percentage through the incorporation of pertinent body metrics.
+# Optional: Acknowledgements
+#acknowledgements: |
+  #This template package builds upon, and extends, the work of the excellent
+  #gratefully acknowledged as this work would not have been possible without them.  Our extensions
+  #are under the same respective licensing term
+  #[rticles](https://cran.r-project.org/package=rticles) package, and both packages rely on the
+  #[PNAS LaTeX](http://www.pnas.org/site/authors/latex.xhtml) macros. Both these sources are
+  #([GPL-3](https://www.gnu.org/licenses/gpl-3.0.en.html) and
+  #[LPPL (>= 1.3)](https://www.latex-project.org/lppl/)).
+# Optional: One or more keywords
+#keywords:
+#  - one
+#  - two
+#  - optional
+#  - keywords
+#  - here
+papersize: letter
+fontsize: 9pt
+# Optional: Force one-column layout, default is two-column
+#one_column: true
+# Optional: Enables lineno mode, but only if one_column mode is also true
+#lineno: true
+# Optional: Enable one-sided layout, default is two-sided
+#one_sided: true
+# Optional: Enable section numbering, default is unnumbered
+#numbersections: true
+# Optional: Specify the depth of section number, default is 5
+#secnumdepth: 5
+# Optional: Skip inserting final break between acknowledgements, default is false
+skip_final_break: true
+# Optional: Bibliography 
+bibliography: pinp
+# Optional: Enable a 'Draft' watermark on the document
+#watermark: true
+#footer_contents: "YourPackage Vignette"
+output: pinp::pinp
+# Required: Vignette metadata for inclusion in a package.
+#vignette: >
+#  %\VignetteIndexEntry{YourPackage-vignetteentry}
+#  %\VignetteKeywords{YourPackage, r, anotherkeyword}
+#  %\VignettePackage{YourPackage}
+#  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+<style>
+.scrollable-box {
+  max-height: 200px; /* Adjust as needed */
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  padding: 10px;
+  font-size: 0.8em; /* Adjust to make text smaller or larger */
+}
+</style>
+
+## Introduction
+
+In this report, we delve into the vital subject of Body Fat Percentage Estimation. Our investigative journey is anchored by data sourced from the esteemed Brigham Young University's Human Performance Research Center. The focus is on male body fat percentage - a parameter of paramount importance in the realms of health and fitness.
+
+```{r setup , message=FALSE,echo=FALSE}
+#install.packages('tidyverse')
+#install.packages('ggpubr')
+#install.packages("sjPlot")
+#install.packages("qtlcharts")
+#install.packages("patchwork")
+library(tidyverse)
+library(patchwork)
+library(ggpubr)
+library(ggfortify)
+library(caret)
+library(gt)
+library(knitr)
+df = read.table('bodyfat.txt',sep='\t', header=TRUE)
+
+```
+
+
+## Data Overview
+
+Measuring body fat percentage accurately is difficult and often expensive. Our dataset includes precise body fat measurements and other accessible metrics for 250 cases across 16 categories. We've simplified the data for clear insights into body fat percentage essentials.
+
+## Data Refinement
+
+We refined our dataset by calculating body fat percentage from underwater weighing, omitting duplicate density values. We resolved a redundancy by keeping abdominal over wrist measurements and standardized weight and height to kilograms and centimeters for analytical consistency.
+
+
+::: aside
+
+:::
+```{=tex}
+\begin{table}[h]
+
+\begin{tabular}{|c|c|c|c|c|c|c|}
+\hline
+Waist & 33.54 & 32.68 & 34.61 & 34.02 & 39.37 & 37.17\\
+\hline
+Abdomen  & 85.20  & 83.00 & 87.90 & 86.40 & 100.00& 94.40\\
+\hline
+Abdomen/2.54  & 33.54 & 32.68 & 34.61 & 34.02 & 39.37 & 37.17\\
+\hline
+
+\end{tabular}
+\caption{Redundancy between waist and abdomen}
+\label{table:label_here}
+\end{table}
+
+```
+
+## Stepwise variable selection
+From the table, forward and backward search selected different variables. Yet, their AIC are very close to each other. Therefore, we decided to do 10-folds cross validation.
+
+```{=tex}
+\begin{table}[!h]
+
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\multicolumn{1}{|c|}{} & \multicolumn{2}{c|}{Forward model} & \multicolumn{2}{c|}{Backward model}\\
+
+Predictors  & Estimates  & p & Estimates & p\\
+\hline
+(Intercept)  & -32.57 & <0.001 & 5.04 & 0.547 \\
+
+Abdopmen  & 0.88 & <0.001 & 0.82 & 0.547 \\
+
+Weight  & -0.24 & <0.001 &  & \\
+
+Wrist  & -1.76 & <0.001 & -1.73 & 0.001 \\
+
+Bicep  & 0.24 & 0.121 &  &  \\
+
+Age  & 0.06 & 0.045 & 0.07 & 0.017 \\
+
+Thigh  & 0.18 &0.1421 & 0.22 & 0.084 \\
+
+Height  &  &  &-0.11 & 0.035 \\
+
+Neck  &  &  &-0.45 & 0.039 \\
+
+Hip  &  &  &-0.19 & 0.135 \\
+
+Forearm &  &  &0.30 & 0.124 \\
+\hline
+\multicolumn{1}{|c|}{Observations} & \multicolumn{2}{c|}{250} & \multicolumn{2}{c|}{250}\\
+\multicolumn{1}{|c|}{$R^2$/$R^2$ adjusted}
+& \multicolumn{2}{c|}{0.742/0.736} & \multicolumn{2}{c|}{0.747/0.739}\\
+\multicolumn{1}{|c|}{AIC} & \multicolumn{2}{c|}{1443.187} & \multicolumn{2}{c|}{1442.736}\\
+\hline
+
+\end{tabular}
+\caption{Forward and backward search with AIC}
+\label{table:label_here}
+\end{table}
+
+```
+
+## Boxplot of rmse and mae
+The boxplots show the distribution of mean absolute error and root mean square error in the forward and backward model. In both comparisons of mae and rmse, both models give a similar distribution. Even when comparing the mean value of both errors, two models give approximately the same result.
+
+```{r boxplot, fig.width=3, fig.height=2, echo=FALSE, fig.cap="Manual cross validation result"}
+set.seed(0)
+
+fold_id = c(rep(1:10, each = 25))
+df$fold_id = sample(fold_id, replace = FALSE)
+#head(df)
+k = 10
+forward_rmse = forward_mae = backward_rmse = backward_mae = vector(mode = "numeric", length = k)
+
+for(i in 1:k) {
+  test_set = df[df$fold_id == i,]
+  training_set = df[df$fold_id != i,]
+  
+  forw_lm = lm(Pct.BF ~ Abdomen + Weight + Wrist + Age + Bicep + Thigh
+                    , data = training_set)
+  back_lm = lm(Pct.BF ~ Abdomen + Wrist + Age + Height + Neck + Thigh + Hip + Forearm
+                    , data = training_set)
+  
+  forw_pred = predict(forw_lm, test_set)
+  back_pred = predict(back_lm, test_set)
+  
+  forward_rmse[i] = sqrt(mean((test_set$Pct.BF - forw_pred)^2))
+  forward_mae[i] = mean(abs(test_set$Pct.BF - forw_pred))
+
+  backward_rmse[i] = sqrt(mean((test_set$Pct.BF - back_pred)^2))
+  backward_mae[i] = mean(abs(test_set$Pct.BF - back_pred))
+}
+
+cv_res = tibble(forward_rmse,forward_mae,backward_rmse,backward_mae)
+cv_res |> gather(key = "metric", value = "error") |>
+  separate(col = metric, into = c("model","metric")) |>
+  ggplot(aes(x = model, y = error)) + facet_wrap(~metric, scales = "free_y") +
+  geom_boxplot()
+```
+## Caret
+Therefore, besides working the cross validation manually, we have done it by using Caret as well.  
+From the caret method, the forward model seems to have smaller errors than the backward model. Although Caret shows a slightly different distribution of mae and rmse, there is still an uncertainty on which model to choose.
+```{r caret mae, fig.pos='!h', fig.width=3, fig.height=1, echo=FALSE, fig.cap="Caret MAE figure"}
+cv_forward = train(
+  Pct.BF ~ Abdomen + Weight + Wrist + Age + Bicep + Thigh, df,
+  method = "lm",
+  trControl = trainControl(
+    method = "cv", number = 10,
+    verboseIter = FALSE
+  )
+)
+cv_backward = train(
+  Pct.BF ~ Abdomen + Wrist + Age + Height + Neck + Thigh + Hip + Forearm, df,
+  method = "lm",
+  trControl = trainControl(
+    method = "cv", number = 10,
+    verboseIter = FALSE
+  )
+)
+
+results <- resamples(list(Forward = cv_forward, Backward = cv_backward))
+
+ggplot(results, metric = "MAE") +
+  labs(y = "MAE")
+```
+```{r caret rmse, fig.pos='!h', fig.width=3, fig.height=1, echo=FALSE, fig.cap="Caret RMSE figure"}
+ggplot(results, metric = "RMSE") +
+  labs(y = "RMSE")
+```
+```{r caret rsq, fig.pos='!h', fig.width=3, fig.height=1, echo=FALSE, fig.cap="Caret Rsquared figure"}
+ggplot(results, metric = "Rsquared") +
+  labs(y = "Rsquared")
+```
+
+
+## Choose forward mode
+
+The less the variables we need for the model, the easier people can get their own percentage body fat. From table 2, forward model has selected less attributes. To sum up, with the evidence in caret and considering the amount of variables being used, we decided to use the forward model.
+
+## Assumption Checking 
+
+Before using the model to predict the average body fat percentage. It is pivotal to ensure the model follows Linear regression assumptions.  
+**Independence**: the assumption states that all errors are independent of each other. It is usually dealt within the experimental design phase - before data collection , so it is not assessed in the report.  
+**Normality:** the normality assumption assumes the errors follow aa normal distribution. In figure 5, the residuals follow normal distribution line, it suggests that the assumption of normality is met.   
+**Linearity**: the assumption states relationship between fitted values and percentage body fat are linear. 
+Figure 6 shows a clear linear relationship between body fat percentage and fitted value.
+Similar trend is observed in figure 7, the residuals are roughly symmetric distributed around the 0 axis , 
+However, the model seems to overestimate percentage body fat for fitted values above 30,it is trivial in this case as the model is not designed to only predict body fat percentage for fitted value  above 30 and in overall ,only less than 10 percent of the data lines in that interval. Therefore, the assumption is not violated.  
+**Homoscedasticity**:  the assumption suggests the error variance should remain constant across all levels of the independent variable, Upon observing figure 3.3, the residuals are roughly evenly spread out Except for residuals with a fitted value between 30 and 35 , suggesting potential heteroscedasticity.
+However, since we have 250 observations and only 9 of them lie in the fitted value interval between 30 and 35 ,The  heteroskedasticity is trivial as it affects a very narrow range of the independent variable (between 30 and 35 less than 5% of the data).Thus, the model does not violate the assumption.
+
+
+
+
+
+
+```{r ,fig.pos='!h', fig.width=3, message = FALSE,fig.height=2, echo=FALSE, fig.cap="qqplot of the residuals"}
+lm1 = lm(Pct.BF ~ Abdomen + Weight + Wrist + Age + 
+           Bicep + Thigh, data = df)
+df = df|> mutate(residual= lm1$residuals,fitted_value= lm1$fitted.values) 
+ 
+df |> ggplot() +
+ aes(sample = residual) +
+ geom_qq(size = 2) + geom_qq_line()+ labs(x = "Quartile",
+ y = "Residual")
+```
+
+```{r ,fig.pos='!h', fig.width=3, message = FALSE,fig.height=2, echo=FALSE, fig.cap="relationship between bodyfate percentage and Fitted value"}
+p1 = df |> ggplot() +
+ aes(x = fitted_value, y = Pct.BF) +
+ geom_point(size = 3, alpha = 0.8) +
+ labs(x = "Fitted value",
+ y = "BodyFat Percentage") +
+ geom_smooth(method="lm", se=FALSE)
+p1
+```
+
+
+```{r ,fig.pos='!h', fig.width=3, message = FALSE,fig.height=2, echo=FALSE, fig.cap="relationship between residuals and Fitted value"}
+p2 = df |> ggplot() +
+ aes(x = fitted_value, y = residual) +
+ geom_point(size = 3, alpha = 0.8) +
+ labs(x = "Fitted value",
+ y = "Residual") +
+ geom_hline(yintercept = 0)
+p2
+
+```
+
+
+
+## Result
+
+As heath becomes a prevailing issue, the report is interested in investigating the body fat percentage by predicting it indirectly through related variables.
+The regression model for estimating Body fat percentage is:
+Body fat percentage = -32.57 + 0.88 Abdomen -0.24 Weight -1.76 Wrist + 0.24 Bicep + 0.06 Age + 0.18 Thigh
+According to the regression found using Step-wise method, a percentage change in the predictors results the coefficient percentage change in the body fat.
+
+## Discussion and Conclusion
+
+One notable limitation of this study pertains to the sample size, which may be considered inadequate for drawing comprehensive generalizations or statistically robust conclusions. The relatively small sample size (250 samples) utilized limits the extent to which the findings can be extrapolated. A larger and more diverse sample size could be considered to enhance the robustness for future researches, enabling a more representative analysis of body composition factors.  
+For the utilization of Siri's equation, it is imperative to underscore that Siri's equation operates based on a single variable (body density), and the outcomes it provides are heavily contingent on the accuracy of this singular metric. This equation may not fully account for the complexities inherent in specific body composition characteristics.  
+Another noteworthy limitation of this study revolves around the application of the AIC method. AIC operates under the assumption of certain statistical conditions, such as model linearity, independence of observations, and the absence of multicollinearity, among others. Failure to fully satisfy these assumptions could potentially compromise the accuracy and reliability of model selection, thus influencing the interpretability of the results.  
+In summary, our linear regression model, with distinct coefficients, shows promise for precise body fat estimation by considering variable impacts. To maximize its potential, addressing limitations and further refinement is crucial. This research contributes to evolving efficient body composition assessment, with broad implications for health, fitness, and science.
