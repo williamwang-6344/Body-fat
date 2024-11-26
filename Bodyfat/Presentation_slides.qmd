@@ -14,9 +14,10 @@ editor: visual
 
 ## Introduction
 
-- source: The Data And Story Library (DASL)
+-   source: The Data And Story Library (DASL)
 
 ## Introduction {.scrollable}
+
 ```{r,message=FALSE,echo=FALSE}
 #install.packages('tidyverse')
 #install.packages('ggpubr')
@@ -43,11 +44,12 @@ df |> glimpse()
 
 $PBF = \frac{495}D - 450$
 
-:::aside
+::: aside
 D = Body Density (gm/cm3)
 :::
 
 ## Data cleaning {.scrollable}
+
 ```{r}
 # Waist is actually Abdomen
 waist = matrix(c(head(df$Waist),head(df$Abdomen),head(df$Abdomen / 2.54)), byrow = TRUE, nrow = 3, dimnames = list(c("Waist","Abdomen","Abdomen/2.54")))
@@ -63,8 +65,8 @@ df$Height = round(df$Height * 2.54,3)
 df |> head()
 ```
 
-
 ## Stepwise variable selection
+
 ```{r}
 M0 = lm(Pct.BF ~ 1, data = df)
 M1 = lm(Pct.BF ~ ., data = df)
@@ -119,6 +121,7 @@ cv_res = tibble(forward_rmse,forward_mae,backward_rmse,backward_mae)
 ```
 
 ### Boxplot of rmse and mae
+
 ```{r}
 cv_res |> gather(key = "metric", value = "error") |>
   separate(col = metric, into = c("model","metric")) |>
@@ -143,6 +146,7 @@ means_of_errors
 ```
 
 ## Using Caret {.scrollable}
+
 ```{r}
 cv_forward = train(
   Pct.BF ~ Abdomen + Weight + Wrist + Age + Bicep + Thigh, df,
@@ -174,12 +178,11 @@ ggplot(results, metric = "Rsquared") +
 
 ```
 
-
 ## Choose forward model {.scrollable}
+
 ```{r}
 sjPlot::tab_model(step.fwd.aic, step.back.aic, show.ci = FALSE, show.aic = TRUE, dv.labels = c("Forward model", "Backward model"))
 ```
-
 
 ## Assumption Checking {.scrollable}
 
@@ -255,7 +258,6 @@ p2
 p4
 ```
 
-
 ## Evidence to back up
 
 ### interactive correlation matrix
@@ -267,31 +269,32 @@ p4
 ```
 
 ## Why it matters
+
 As heath becomes a prevailing issue, the group members are interested in investigating the body fat percentage by predicting it indirectly through related variables.
 
 ## What we discovered {.scrollable}
 
 Using AIC, the group has discovered that body fat percentage can be reflected by a linear model with independent variables:
 
-- Abdomen
-- Weight
-- Wrist
-- Bicep
-- Age
-- Thigh
+-   Abdomen
+-   Weight
+-   Wrist
+-   Bicep
+-   Age
+-   Thigh
 
 ## Takeaway {.scrollable}
 
-- Knowing your own body fat percentage can be simple and easy as it is
-- Tools needed:
-- **A scale & another scale!**
+-   Knowing your own body fat percentage can be simple and easy as it is
+-   Tools needed:
+-   **A scale & another scale!**
 
 ```{r}
 knitr::include_graphics("scale.jpeg")
 ```
 
 ## Limitations
-- sample size
-- Equations
-- AIC method
 
+-   sample size
+-   Equations
+-   AIC method
